@@ -75,7 +75,8 @@ type ReadableFile <: IO
 	crc32 :: UInt32             # CRC32 of uncompressed data
 	compressedsize :: UInt32    # file size after compression
 	uncompressedsize :: UInt32  # size of uncompressed file
-	_offset :: UInt32
+        externattr::UInt32          # external attribute
+        _offset :: UInt32
 	_datapos :: Int64   # position where data begins
 	_zio :: IO          # compression IO
 
@@ -85,12 +86,12 @@ type ReadableFile <: IO
 
 	function ReadableFile(io::IO, name::AbstractString, method::UInt16, dostime::UInt16,
 			dosdate::UInt16, crc32::UInt32, compressedsize::UInt32,
-			uncompressedsize::UInt32, _offset::UInt32)
+			uncompressedsize::UInt32, externattr::UInt32, _offset::UInt32)
 		if method != Store && method != Deflate
 			error("unknown compression method $method")
 		end
 		new(io, name, method, dostime, dosdate, crc32,
-			compressedsize, uncompressedsize, _offset, -1, io, 0, 0, 0)
+			compressedsize, uncompressedsize, externattr, _offset, -1, io, 0, 0, 0)
 	end
 end
 
@@ -318,12 +319,13 @@ function _getfiles(io::IO, diroffset::Integer, nfiles::Integer)
 		namelen = readle(io, UInt16)
 		extralen = readle(io, UInt16)
 		commentlen = readle(io, UInt16)
-		skip(io, 2+2+4)
+	        skip(io, 2+2)
+                externattr = readle(io, UInt32)
 		offset = readle(io, UInt32)
 		name = utf8_validate(read(io, UInt8, namelen))
 		skip(io, extralen+commentlen)
 		files[i] = ReadableFile(io, name, method, dostime, dosdate,
-			crc32, compsize, uncompsize, offset)
+			crc32, compsize, uncompsize, externattr, offset)
 	end
 	files
 end
